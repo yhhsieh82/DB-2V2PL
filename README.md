@@ -86,7 +86,7 @@ There is also a configuration in VanillaCore you can try:
 
 The procedure of submission is as following:
 
-1. Fork our [Assignment 5](https://shwu10.cs.nthu.edu.tw/courses-databases-2018-spring/db18-assignment-5) on GitLab
+1. Fork our [Assignment 5](https://shwu10.cs.nthu.edu.tw/courses/databases/2018-spring/db18-assignment-5) on GitLab
 2. Clone the repository you forked
 3. Finish your work and write the report
 4. Commit your work, push your work to GitLab.
