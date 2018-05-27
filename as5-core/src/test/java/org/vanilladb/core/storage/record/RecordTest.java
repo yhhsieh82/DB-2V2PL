@@ -41,6 +41,7 @@ import org.vanilladb.core.sql.VarcharConstant;
 import org.vanilladb.core.storage.buffer.Buffer;
 import org.vanilladb.core.storage.buffer.BufferMgr;
 import org.vanilladb.core.storage.file.BlockId;
+import org.vanilladb.core.storage.metadata.CatalogMgr;
 import org.vanilladb.core.storage.metadata.TableInfo;
 import org.vanilladb.core.storage.tx.Transaction;
 import org.vanilladb.core.storage.tx.recovery.RecoveryMgr;
@@ -62,12 +63,19 @@ public class RecordTest {
 		ServerInit.init(RecordTest.class);
 		RecoveryMgr.enableLogging(false);
 
+		tx = VanillaDb.txMgr().newTransaction(
+				Connection.TRANSACTION_SERIALIZABLE, false);
+
+		CatalogMgr md = VanillaDb.catalogMgr();
 		schema = new Schema();
 		schema.addField("cid", INTEGER);
 		schema.addField("title", VARCHAR(20));
 		schema.addField("deptid", BIGINT);
-		ti1 = new TableInfo(tableName1, schema);
-		ti2 = new TableInfo(tableName2, schema);
+		md.createTable(tableName1, schema, tx);
+		md.createTable(tableName2, schema, tx);
+		ti1 = md.getTableInfo(tableName1, tx);
+		ti2 = md.getTableInfo(tableName2, tx);
+		tx.commit();
 		
 		if (logger.isLoggable(Level.INFO))
 			logger.info("BEGIN RECORD TEST");
@@ -272,10 +280,12 @@ public class RecordTest {
 	public void testASpecialCase() {
 		tx = VanillaDb.txMgr().newTransaction(
 				Connection.TRANSACTION_SERIALIZABLE, false);
-		
+
+		CatalogMgr md = VanillaDb.catalogMgr();
 		Schema sch = new Schema();
 		sch.addField("test_str", Type.VARCHAR(30));
-		TableInfo ti = new TableInfo("test_table", sch);
+		md.createTable("test_table", sch, tx);
+		TableInfo ti = md.getTableInfo("test_table", tx);
 		RecordFile.formatFileHeader(ti.fileName(), tx);
 		
 		// Insert a record
