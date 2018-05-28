@@ -76,6 +76,14 @@ public class RepeatableReadTplConcurrencyMgr extends TwoPhaseLockingConcurrencyM
 	}
 	
 	@Override
+	public void shadow_modifyRecord(RecordId recId) {
+		//Acquire shadow exclusive lock on the record
+			lockTbl.ixLock(recId.block().fileName(), txNum);
+			lockTbl.ixLock(recId.block(), txNum);
+			lockTbl.shxLock(recId, txNum);
+	}
+	
+	@Override
 	public void modifyRecord(RecordId recId) {
 		lockTbl.ixLock(recId.block().fileName(), txNum);
 		lockTbl.ixLock(recId.block(), txNum);

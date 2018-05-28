@@ -81,6 +81,12 @@ public interface ConcurrencyMgr extends TransactionLifecycleListener {
 	 *            the record id
 	 */
 	void modifyRecord(RecordId recId);
+	
+	/**
+	 * 
+	 * 
+	 */
+	void shadow_modifyRecord(RecordId recId);
 
 	/**
 	 * Sets lock according to the transaction's isolation level for the reading

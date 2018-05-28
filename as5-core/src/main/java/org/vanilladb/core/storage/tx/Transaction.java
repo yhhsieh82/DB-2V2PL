@@ -19,12 +19,18 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.Map;
+import java.util.HashMap;
 
+import org.vanilladb.core.sql.BigIntConstant;
+import org.vanilladb.core.sql.Constant;
+import org.vanilladb.core.sql.IntegerConstant;
 import org.vanilladb.core.server.VanillaDb;
 import org.vanilladb.core.storage.buffer.BufferMgr;
 import org.vanilladb.core.storage.tx.concurrency.ConcurrencyMgr;
 import org.vanilladb.core.storage.tx.recovery.RecoveryMgr;
-
+import org.vanilladb.core.storage.record.RecordId;
+import org.vanilladb.core.storage.record.RecordFile;
 /**
  * Provides transaction management for clients, ensuring that all transactions
  * are recoverable, and in general satisfy the ACID properties with specified
@@ -39,7 +45,20 @@ public class Transaction {
 	private List<TransactionLifecycleListener> lifecycleListeners;
 	private long txNum;
 	private boolean readOnly;
-
+	
+	public HashMap<String, fld_rid_val> hashmap;
+	public HashMap<String, RecordFile> recordFiles;
+	
+	public class fld_rid_val{
+		public String fldname;
+		public RecordId rid;
+		public Constant constant;
+		public fld_rid_val(String fldname, RecordId rid, Constant constant) {
+			this.fldname = fldname;
+			this.rid = rid;
+			this.constant = constant;
+		}
+	}
 	/**
 	 * Creates a new transaction and associates it with a recovery manager, a
 	 * concurrency manager, and a buffer manager. This constructor depends on
@@ -68,6 +87,9 @@ public class Transaction {
 		this.bufferMgr = (BufferMgr) bufferMgr;
 		this.txNum = txNum;
 		this.readOnly = readOnly;
+		
+		this.hashmap = new HashMap<String, fld_rid_val>();
+		this.recordFiles = new HashMap<String, RecordFile>();
 
 		lifecycleListeners = new LinkedList<TransactionLifecycleListener>();
 		// XXX: A transaction manager must be added before a recovery manager to
@@ -90,7 +112,24 @@ public class Transaction {
 		addLifecycleListener(concurMgr);
 		addLifecycleListener(bufferMgr);
 	}
-
+	
+	//HashMap<String key, Integer value>();
+	public fld_rid_val hashmap_get(String key) {
+		return this.hashmap.get(key);
+	}
+	
+	public fld_rid_val hashmap_put(String key,  fld_rid_val c) {
+		return this.hashmap.put(key, c);
+	}
+	
+	public RecordFile recordFiles_get(String file_name) {
+		return this.recordFiles.get(file_name);
+	}
+	
+	public RecordFile recordFiles_put(String file_name, RecordFile rf) {
+		return this.recordFiles.put(file_name, rf);
+	}
+	
 	public void addLifecycleListener(TransactionLifecycleListener listener) {
 		lifecycleListeners.add(listener);
 	}
@@ -101,6 +140,18 @@ public class Transaction {
 	 * locks, and unpins any pinned blocks.
 	 */
 	public void commit() {
+		//in-place write 
+			if(!this.isReadOnly() || this.isReadOnly()) {
+				//record file correspond to the rid should do the in-place write
+				for (Map.Entry<String, fld_rid_val> entry : this.hashmap.entrySet()) {    
+					fld_rid_val val = entry.getValue(); 
+					RecordFile rf = this.recordFiles_get(val.rid.block().fileName());
+					rf.moveToRecordId(val.rid);		
+					rf.in_place_setVal(val.fldname, val.constant);
+				}  
+			}
+			
+		//original code
 		for (TransactionLifecycleListener l : lifecycleListeners)
 			l.onTxCommit(this);
 

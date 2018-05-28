@@ -28,12 +28,14 @@ import java.util.Set;
 
 import org.vanilladb.core.server.VanillaDb;
 import org.vanilladb.core.sql.IntegerConstant;
+import org.vanilladb.core.sql.Constant;
 import org.vanilladb.core.sql.Schema;
 import org.vanilladb.core.sql.Type;
 import org.vanilladb.core.sql.VarcharConstant;
 import org.vanilladb.core.storage.metadata.index.IndexInfo;
 import org.vanilladb.core.storage.record.RecordFile;
 import org.vanilladb.core.storage.tx.Transaction;
+import org.vanilladb.core.storage.tx.Transaction.fld_rid_val;
 import org.vanilladb.core.util.CoreProperties;
 
 /**
@@ -128,6 +130,16 @@ public class TableMgr {
 		RecordFile tcatfile = tcatInfo.open(tx, true);
 		tcatfile.insert();
 		tcatfile.setVal(TCAT_TBLNAME, new VarcharConstant(tblName));
+		/**
+		 //before the tcatfile closed, i need to ensure it is written into disk.
+		for (Map.Entry<String, fld_rid_val> entry : tx.hashmap.entrySet()) {  
+			//String fldname_rid = entry.getKey();  
+			fld_rid_val val = entry.getValue(); //object(fldname_rid,constant)
+			
+			RecordFile rf = tx.recordFiles_get(val.rid.block().fileName());
+			rf.moveToRecordId(val.rid);		
+			rf.in_place_setVal(val.fldname, val.constant);
+		}**/
 		tcatfile.close();
 
 		// insert a record into fldcat for each field
@@ -141,6 +153,16 @@ public class TableMgr {
 			fcatfile.setVal(FCAT_TYPEARG, new IntegerConstant(sch.type(fldname)
 					.getArgument()));
 		}
+		/**
+		for (Map.Entry<String, fld_rid_val> entry : tx.hashmap.entrySet()) {  
+			//String fldname_rid = entry.getKey();  
+			fld_rid_val val = entry.getValue(); //object(fldname_rid,constant)
+			
+			RecordFile rf = tx.recordFiles_get(val.rid.block().fileName());
+			rf.moveToRecordId(val.rid);		
+			rf.in_place_setVal(val.fldname, val.constant);
+		}
+		**/
 		fcatfile.close();
 	}
 
@@ -161,6 +183,7 @@ public class TableMgr {
 		tiMap.remove(tblName);
 
 		// remove the record from tblcat
+		/**/
 		RecordFile tcatfile = tcatInfo.open(tx, true);
 		tcatfile.beforeFirst();
 		while (tcatfile.next()) {
@@ -169,6 +192,7 @@ public class TableMgr {
 				break;
 			}
 		}
+		/**/
 		tcatfile.close();
 
 		// remove all records whose field FCAT_TBLNAME equals to tblName from fldcat

@@ -72,6 +72,17 @@ public class SerializableTplConcurrencyMgr extends TwoPhaseLockingConcurrencyMgr
 	}
 	
 	@Override
+	public void shadow_modifyRecord(RecordId recId) {
+		//Acquire shadow exclusive lock on the record
+		/**
+		 *Q:do you need to top down get the ixlock at first?
+		 */
+		lockTbl.ixLock(recId.block().fileName(), txNum);
+		lockTbl.ixLock(recId.block(), txNum);
+		lockTbl.shxLock(recId, txNum);
+	}
+	
+	@Override
 	public void modifyRecord(RecordId recId) {
 		lockTbl.ixLock(recId.block().fileName(), txNum);
 		lockTbl.ixLock(recId.block(), txNum);

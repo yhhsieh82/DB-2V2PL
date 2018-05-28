@@ -185,8 +185,23 @@ public class RecordPage implements Record {
 	 * @return the constant stored in that field
 	 */
 	public Constant getVal(String fldName) {
+		//directly find it inside the map
+		/**/
+		RecordId rid = new RecordId(blk, currentSlot);
+		String fieldname_rid = "fieldname:"+fldName+"rid:"+rid;		
+		
+		if (tx.hashmap_get(fieldname_rid) != null)
+			return tx.hashmap_get(fieldname_rid).constant;
+		else {
+			int position = fieldPos(fldName);
+			return getVal(position, ti.schema().type(fldName));
+		}
+
+		//original code
+		/**
 		int position = fieldPos(fldName);
 		return getVal(position, ti.schema().type(fldName));
+		**/
 	}
 
 	/**
@@ -330,7 +345,7 @@ public class RecordPage implements Record {
 		return currentSlot * slotSize;
 	}
 
-	private int fieldPos(String fldName) {
+	public int fieldPos(String fldName) {
 		int offset = FLAG_SIZE + myOffsetMap.get(fldName);
 		return currentPos() + offset;
 	}
@@ -351,16 +366,59 @@ public class RecordPage implements Record {
 	}
 
 	private Constant getVal(int offset, Type type) {
+		//the tx must has private workspace, search inside first according to the type
+		/**
+		//directly find it inside the map
+		RecordId r = new RecordId(blk, currentSlot);
+		//String key = "blockid:"+r.block()+"id:"+r.id();
+		Constant c = tx.hashmap_get(r);
+		if (c==null) {
+			if (!isTempTable())//get lock
+				tx.concurrencyMgr().readRecord(r);
+			//load it from the buffer to the map
+			//tx.hashmap_put(r, currentBuff.getVal(offset, type).castTo(INTEGER) );
+			return currentBuff.getVal(offset, type);
+		}
+		else 
+			return c;
+		**/
+		//original code
+		/**/
 		if (!isTempTable())
 			tx.concurrencyMgr().readRecord(new RecordId(blk, currentSlot));
-		return currentBuff.getVal(offset, type);
+		return currentBuff.getVal(offset, type);  // currentbuff=tx.bufferMgr().pin(blk);
+		/**/
 	}
 
+	public void shadow_setVal(String fldname, int offset, Constant val) {
+		if (tx.isReadOnly() && !isTempTable())
+			throw new UnsupportedOperationException();
+		
+		RecordId rid = new RecordId(blk, currentSlot);
+		 //how to deal w/ conflict in hashmap? <1.key, 2.val>
+		String fieldname_rid = "fieldname:"+fldname+"rid:"+rid;
+		Transaction.fld_rid_val value = tx.new fld_rid_val(fldname, rid, val);
+		
+		
+		//Constant c = tx.hashmap_get(fieldname_rid).constant;
+		if (tx.hashmap_get(fieldname_rid)==null) {
+			//get shxlock at first 
+			if (!isTempTable())
+				tx.concurrencyMgr().shadow_modifyRecord(new RecordId(blk, currentSlot));
+			tx.hashmap_put(fieldname_rid, value);
+		}
+		else 
+			//update entry (w/ shxlock on hand)
+			tx.hashmap_put(fieldname_rid, value);
+	}
+	
 	private void setVal(int offset, Constant val) {
 		if (tx.isReadOnly() && !isTempTable())
 			throw new UnsupportedOperationException();
+		//get lock
 		if (!isTempTable())
 			tx.concurrencyMgr().modifyRecord(new RecordId(blk, currentSlot));
+		//set value
 		LogSeqNum lsn = doLog ? tx.recoveryMgr().logSetVal(currentBuff, offset, val)
 				: null;
 		currentBuff.setVal(offset, val, tx.getTransactionNumber(), lsn);

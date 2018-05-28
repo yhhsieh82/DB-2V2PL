@@ -15,6 +15,8 @@
  ******************************************************************************/
 package org.vanilladb.core.storage.record;
 
+import java.util.Map;
+
 import org.vanilladb.core.server.VanillaDb;
 import org.vanilladb.core.sql.Constant;
 import org.vanilladb.core.sql.Record;
@@ -94,6 +96,21 @@ public class RecordFile implements Record {
 	 * Closes the record file.
 	 */
 	public void close() {
+		
+		//before fieldcatalogfile(fcatfile) close, u must do in-place write
+		/**
+		for (Map.Entry<fldname_rid, Constant> entry : tx.hashmap.entrySet()) {  
+			fldname_rid fldname_rid = entry.getKey();  
+			Constant val = entry.getValue(); //object(fldname_rid,constant)
+			
+			RecordFile rf = tx.recordFiles_get(fldname_rid.rid.block().fileName());
+			//rf.in_place_setVal(fldName, value);
+			rf.moveToRecordId(fldname_rid.rid);		
+			rf.in_place_setVal(fldname_rid.fldname, val);
+		}
+		**/
+		
+		//original code
 		if (rp != null)
 			rp.close();
 		if (fhp != null)
@@ -164,6 +181,48 @@ public class RecordFile implements Record {
 		Constant v = val.castTo(fldType);
 		if (Page.size(v) > Page.maxSize(fldType))
 			throw new SchemaIncompatibleException();
+		
+		//shadow set value
+		int position =rp.fieldPos(fldName);
+		rp.shadow_setVal(fldName, position, v);
+		
+		tx.recordFiles_put(this.fileName, this);
+		
+		//a good timing to perform either a shadow write (to get a shx lock)
+		//or an in-place write(now has shx lock)
+		/**
+		if(tx.hashmap.size()!=0) {  //i.e. have shx lock
+			int position =rp.fieldPos(fldName);
+			rp.shadow_setVal(position, v);
+		}
+		else
+			rp.setVal(fldName, v);
+		**/
+		
+		//original code
+		/**
+		if (tx.isReadOnly() && !isTempTable())
+			throw new UnsupportedOperationException();
+		Type fldType = ti.schema().type(fldName);
+
+		Constant v = val.castTo(fldType);
+		if (Page.size(v) > Page.maxSize(fldType))
+			throw new SchemaIncompatibleException();
+	
+		rp.setVal(fldName, v);
+		**/
+	}
+	
+	//before commit, do in-place write 
+	public void in_place_setVal(String fldName, Constant val) {
+		if (tx.isReadOnly() && !isTempTable())
+			throw new UnsupportedOperationException();
+		Type fldType = ti.schema().type(fldName);
+
+		Constant v = val.castTo(fldType);
+		if (Page.size(v) > Page.maxSize(fldType))
+			throw new SchemaIncompatibleException();
+	
 		rp.setVal(fldName, v);
 	}
 
