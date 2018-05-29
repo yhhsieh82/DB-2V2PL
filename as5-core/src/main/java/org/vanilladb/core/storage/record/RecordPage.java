@@ -399,8 +399,6 @@ public class RecordPage implements Record {
 		String fieldname_rid = "fieldname:"+fldname+"rid:"+rid;
 		Transaction.fld_rid_val value = tx.new fld_rid_val(fldname, rid, val);
 		
-		
-		//Constant c = tx.hashmap_get(fieldname_rid).constant;
 		if (tx.hashmap_get(fieldname_rid)==null) {
 			//get shxlock at first 
 			if (!isTempTable())

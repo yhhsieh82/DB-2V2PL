@@ -185,19 +185,8 @@ public class RecordFile implements Record {
 		//shadow set value
 		int position =rp.fieldPos(fldName);
 		rp.shadow_setVal(fldName, position, v);
-		
+
 		tx.recordFiles_put(this.fileName, this);
-		
-		//a good timing to perform either a shadow write (to get a shx lock)
-		//or an in-place write(now has shx lock)
-		/**
-		if(tx.hashmap.size()!=0) {  //i.e. have shx lock
-			int position =rp.fieldPos(fldName);
-			rp.shadow_setVal(position, v);
-		}
-		else
-			rp.setVal(fldName, v);
-		**/
 		
 		//original code
 		/**

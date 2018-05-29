@@ -158,6 +158,16 @@ class TplLockTable {
 				}
 			}
 		}
+		/**/
+		if (lockType == IX_LOCK || lockType == SHX_LOCK || lockType == SIX_LOCK 
+				|| lockType == S_LOCK || lockType == X_LOCK) {
+			if (lks.shxLocker > txNum) {
+				txnsToBeAborted.add(lks.shxLocker);
+				if (!toBeNotified.contains(lks.shxLocker))
+					toBeNotified.add(lks.shxLocker);
+			}
+		}
+		/**/
 		if (lockType == IX_LOCK || lockType == S_LOCK || lockType == SIX_LOCK
 				|| lockType == X_LOCK) {
 			if (lks.sixLocker > txNum) {
@@ -166,16 +176,6 @@ class TplLockTable {
 					toBeNotified.add(lks.sixLocker);
 			}
 		}
-		/**/
-		if (lockType == IX_LOCK || lockType == SHX_LOCK || lockType == SIX_LOCK
-				|| lockType == X_LOCK) {
-			if (lks.shxLocker > txNum) {
-				txnsToBeAborted.add(lks.shxLocker);
-				if (!toBeNotified.contains(lks.shxLocker))
-					toBeNotified.add(lks.shxLocker);
-			}
-		}
-		/**/
 		if (lks.xLocker > txNum) {
 			txnsToBeAborted.add(lks.xLocker);
 			if (!toBeNotified.contains(lks.xLocker))
@@ -437,15 +437,15 @@ class TplLockTable {
 				releaseLock(lks, anchor, txNum, lockType);
 
 				// Check if this transaction have any other lock on this object
-				if (!hasSLock(lks, txNum) && !hasXLock(lks, txNum)
+				if (!hasSLock(lks, txNum) && !hasXLock(lks, txNum) && !hasShxLock(lks, txNum)
 						&& !hasSixLock(lks, txNum) && !hasIsLock(lks, txNum)
 						&& !hasIxLock(lks, txNum)) {
 					getObjectSet(txNum).remove(obj);
 
 					// Remove the locker, if there is no other transaction
 					// having it
-					if (!sLocked(lks) && !xLocked(lks) && !sixLocked(lks)
-							&& !isLocked(lks) && !ixLocked(lks)
+					if (!sLocked(lks) && !xLocked(lks) && !shxLocked(lks)
+							&& !sixLocked(lks) && !isLocked(lks) && !ixLocked(lks)
 							&& lks.requestSet.isEmpty())
 						lockerMap.remove(obj);
 				}
@@ -477,10 +477,13 @@ class TplLockTable {
 
 					if (hasXLock(lks, txNum) && !sLockOnly)
 						releaseLock(lks, anchor, txNum, X_LOCK);
-
+					
 					if (hasSixLock(lks, txNum))
 						releaseLock(lks, anchor, txNum, SIX_LOCK);
 
+					if (hasShxLock(lks, txNum))
+						releaseLock(lks, anchor, txNum, SHX_LOCK);
+					
 					while (hasIsLock(lks, txNum))
 						releaseLock(lks, anchor, txNum, IS_LOCK);
 
@@ -489,8 +492,8 @@ class TplLockTable {
 
 					// Remove the locker, if there is no other transaction
 					// having it
-					if (!sLocked(lks) && !xLocked(lks) && !sixLocked(lks)
-							&& !isLocked(lks) && !ixLocked(lks)
+					if (!sLocked(lks) && !xLocked(lks) && !shxLocked(lks)
+							&& !sixLocked(lks) && !isLocked(lks) && !ixLocked(lks)
 							&& lks.requestSet.isEmpty())
 						lockerMap.remove(obj);
 				}
@@ -510,6 +513,13 @@ class TplLockTable {
 		case X_LOCK:
 			if (lks.xLocker == txNum) {
 				lks.xLocker = -1;
+				
+				anchor.notifyAll();
+			}
+			return;
+		case SHX_LOCK:
+			if (lks.shxLocker == txNum) {
+				lks.shxLocker = -1;
 				
 				anchor.notifyAll();
 			}
